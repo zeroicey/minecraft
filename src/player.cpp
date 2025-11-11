@@ -28,7 +28,6 @@ void UpdatePlayer() {
         Vector3Subtract(playerCamera.target, playerCamera.position));
     Vector3 start_postition = playerCamera.position;
 
-    bool found_block = false;
     Vector3 target_block_pos;
     Vector3 last_air_pos;
 
@@ -39,10 +38,10 @@ void UpdatePlayer() {
       int block_y = (int)round(current_point.y);
       int block_z = (int)round(current_point.z);
       if (GetBlock(block_x, block_y, block_z) != BLOCK_AIR) {
-        found_block = true;
         target_block_pos =
             (Vector3){(float)block_x, (float)block_y, (float)block_z};
         std::cout << GetBlock(block_x, block_y, block_z) << std::endl;
+        DestroyBlockAt(block_x, block_y, block_z);
         break;
       } else {
         last_air_pos =

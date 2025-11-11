@@ -110,6 +110,8 @@ void RenderWorld() {
   }
 }
 
+void DestroyBlockAt(int x, int y, int z) { world[x][y][z] = BLOCK_AIR; }
+
 void UnloadWorldTextures() {
   UnloadTexture(grassTexture);
   UnloadTexture(stoneTexture);
