@@ -4,9 +4,10 @@
 #include "block.h"
 
 void DrawMouse();
-void DrawUI();
+void DrawUI(const Camera3D &camera);
 
-int main(void) {
+int main(void)
+{
   // 1. 初始化
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Minecraft Clone");
   SetTargetFPS(TARGET_FPS);
@@ -15,12 +16,13 @@ int main(void) {
   BlockRegistry::Initialize();
   InitPlayer();
   InitWorld();
-  
+
   // 创建世界对象（自动生成初始区块）
   World world;
 
   // 2. 游戏主循环
-  while (!WindowShouldClose()) {
+  while (!WindowShouldClose())
+  {
     // 2.1 更新数据
     UpdatePlayer(&world);
     world.update(playerCamera.position);
@@ -33,7 +35,7 @@ int main(void) {
     world.render();
     EndMode3D();
 
-    DrawUI();
+    DrawUI(playerCamera);
     DrawMouse();
     EndDrawing();
   }
