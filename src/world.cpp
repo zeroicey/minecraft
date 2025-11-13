@@ -6,6 +6,8 @@
 #include "utils.h"
 #include <raymath.h>
 #include <cmath>
+#include <vector>
+#include <algorithm>
 
 Texture2D grassTexture;
 Texture2D dirtTexture;
@@ -146,7 +148,47 @@ ChunkCoord2D World::worldToChunkCoord(int worldX, int worldZ) const {
 }
 
 void World::update(const Vector3 &playerPosition) {
-  // TODO: 动态加载/卸载区块
+  // 定义加载和卸载的半径（以区块为单位）
+  const int LOAD_RADIUS = 2;   // 加载玩家周围 5x5 个区块 (2*2+1)
+  const int UNLOAD_RADIUS = 4; // 卸载距离玩家 4 个区块以外的区块
+
+  // 计算玩家所在的区块坐标
+  int playerChunkX = floor_div((int)playerPosition.x, CHUNK_WIDTH);
+  int playerChunkZ = floor_div((int)playerPosition.z, CHUNK_DEPTH);
+
+  // 1. 加载玩家周围的区块
+  for (int offsetX = -LOAD_RADIUS; offsetX <= LOAD_RADIUS; offsetX++) {
+    for (int offsetZ = -LOAD_RADIUS; offsetZ <= LOAD_RADIUS; offsetZ++) {
+      int chunkX = playerChunkX + offsetX;
+      int chunkZ = playerChunkZ + offsetZ;
+      loadChunk(chunkX, chunkZ);
+    }
+  }
+
+  // 2. 卸载距离玩家过远的区块
+  std::vector<ChunkCoord2D> chunksToUnload;
+  for (auto &pair : m_chunks) {
+    ChunkCoord2D chunkCoord = pair.first;
+    
+    // 计算区块中心到玩家的距离（以区块为单位）
+    int distanceX = abs(chunkCoord.x - playerChunkX);
+    int distanceZ = abs(chunkCoord.z - playerChunkZ);
+    int maxDistance = std::max(distanceX, distanceZ);
+
+    // 如果超出卸载范围，标记为待卸载
+    if (maxDistance > UNLOAD_RADIUS) {
+      chunksToUnload.push_back(chunkCoord);
+    }
+  }
+
+  // 执行卸载
+  for (const auto &coord : chunksToUnload) {
+    auto it = m_chunks.find(coord);
+    if (it != m_chunks.end()) {
+      delete it->second;  // 释放区块内存
+      m_chunks.erase(it); // 从map中移除
+    }
+  }
 }
 
 void World::render() {
