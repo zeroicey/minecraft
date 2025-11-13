@@ -3,20 +3,13 @@
 #include <map>
 #include <raylib.h>
 
-// 声明世界数据结构和操作函数
-extern int world[CHUNK_WIDTH][CHUNK_HEIGHT]
-                [CHUNK_DEPTH]; // 使用 extern 声明全局变量
+// 纹理资源（全局共享）
 extern Texture2D grassTexture;
 extern Texture2D stoneTexture;
 extern Texture2D dirtTexture;
 
 void InitWorld();
-void GenerateWorld();
-void RenderWorld();
 void UnloadWorldTextures();
-int GetBlock(int x, int y, int z);
-void DestroyBlockAt(int x, int y, int z);
-void PlaceBlockAt(int x, int y, int z, int block_type);
 
 class World {
 public:
@@ -32,8 +25,8 @@ public:
   // 设置世界中任意一个绝对坐标的方块ID
   void setBlock(int worldX, int worldY, int worldZ, BlockID id);
 
-  // TODO: 渲染所有加载的区块
-  // void render(const /* 摄像机 */& camera);
+  // 渲染所有加载的区块
+  void render();
 
 private:
   // 将世界坐标转换为区块坐标

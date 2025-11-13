@@ -13,6 +13,7 @@ set(PROJECT_SOURCES
     ${CMAKE_SOURCE_DIR}/src/world.cpp
     ${CMAKE_SOURCE_DIR}/src/player.cpp
     ${CMAKE_SOURCE_DIR}/src/chunk.cpp
+    ${CMAKE_SOURCE_DIR}/src/block.cpp
 )
 
 include(FetchContent)

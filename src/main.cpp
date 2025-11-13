@@ -1,6 +1,7 @@
 #include "config.h"
 #include "player.h"
 #include "world.h"
+#include "block.h"
 
 void DrawMouse();
 void DrawUI();
@@ -11,21 +12,25 @@ int main(void) {
   SetTargetFPS(TARGET_FPS);
   DisableCursor();
 
+  BlockRegistry::Initialize();
   InitPlayer();
   InitWorld();
-  GenerateWorld();
+  
+  // 创建世界对象（自动生成初始区块）
+  World world;
 
   // 2. 游戏主循环
   while (!WindowShouldClose()) {
     // 2.1 更新数据
-    UpdatePlayer();
+    UpdatePlayer(&world);
+    world.update(playerCamera.position);
 
     // 2.2 绘制画面
     BeginDrawing();
     ClearBackground(SKYBLUE);
 
     BeginMode3D(playerCamera);
-    RenderWorld();
+    world.render();
     EndMode3D();
 
     DrawUI();

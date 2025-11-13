@@ -1,5 +1,8 @@
 #include "block.h"
+#include <map>
 #include <stdexcept>
+
+std::map<BlockID, BlockProperties> BlockRegistry::s_propertiesMap;
 
 void BlockRegistry::Initialize() {
   s_propertiesMap[BlockID::AIR] = {BlockID::AIR, "Air", true};

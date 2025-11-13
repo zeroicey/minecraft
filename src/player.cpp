@@ -33,7 +33,7 @@ void DrawMouse() {
              (Vector2){center.x + length, center.y}, thickness, BLACK);
 }
 
-void UpdatePlayer() {
+void UpdatePlayer(World* world) {
   if (IsKeyPressed(KEY_F11)) {
     ToggleFullscreen();
   }
@@ -51,10 +51,10 @@ void UpdatePlayer() {
       int block_x = (int)round(current_point.x);
       int block_y = (int)round(current_point.y);
       int block_z = (int)round(current_point.z);
-      if (GetBlock(block_x, block_y, block_z) != BlockID::AIR) {
+      if (world->getBlock(block_x, block_y, block_z) != BlockID::AIR) {
         target_block_pos =
             (Vector3){(float)block_x, (float)block_y, (float)block_z};
-        DestroyBlockAt(block_x, block_y, block_z);
+        world->setBlock(block_x, block_y, block_z, BlockID::AIR);
         break;
       }
     }
@@ -74,8 +74,8 @@ void UpdatePlayer() {
       int block_x = (int)round(current_point.x);
       int block_y = (int)round(current_point.y);
       int block_z = (int)round(current_point.z);
-      if (GetBlock(block_x, block_y, block_z) != BlockID::AIR) {
-        PlaceBlockAt((int)round(last_air_pos.x), (int)round(last_air_pos.y),
+      if (world->getBlock(block_x, block_y, block_z) != BlockID::AIR) {
+        world->setBlock((int)round(last_air_pos.x), (int)round(last_air_pos.y),
                      (int)round(last_air_pos.z), BlockID::STONE);
         break;
       } else {

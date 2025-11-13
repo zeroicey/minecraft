@@ -5,8 +5,8 @@
 #include "raylib.h"
 #include "utils.h"
 #include <raymath.h>
+#include <cmath>
 
-int world[CHUNK_WIDTH][CHUNK_HEIGHT][CHUNK_DEPTH];
 Texture2D grassTexture;
 Texture2D dirtTexture;
 Texture2D stoneTexture;
@@ -17,12 +17,16 @@ void InitWorld() {
   stoneTexture = LoadTexturePNG("assets/stone.png");
 }
 
-void GenerateWorld() {
-  for (int x = 0; x < CHUNK_WIDTH; x++) {
-    for (int z = 0; z < CHUNK_DEPTH; z++) {
-      // 1. 计算当前 (x, z) 坐标的地表高度
+void GenerateChunkTerrain(Chunk* chunk, int chunkX, int chunkZ) {
+  for (int localX = 0; localX < CHUNK_WIDTH; localX++) {
+    for (int localZ = 0; localZ < CHUNK_DEPTH; localZ++) {
+      // 计算世界坐标
+      int worldX = chunkX * CHUNK_WIDTH + localX;
+      int worldZ = chunkZ * CHUNK_DEPTH + localZ;
+      
+      // 计算当前 (x, z) 坐标的地表高度
       float heightNoise =
-          sinf(x / TERRAIN_FREQUENCY) * cosf(z / TERRAIN_FREQUENCY);
+          sinf(worldX / TERRAIN_FREQUENCY) * cosf(worldZ / TERRAIN_FREQUENCY);
       int surfaceHeight =
           (int)(TERRAIN_BASE_HEIGHT + heightNoise * TERRAIN_AMPLITUDE);
 
@@ -32,97 +36,51 @@ void GenerateWorld() {
       if (surfaceHeight < 0)
         surfaceHeight = 0;
 
-      // 2. 从下往上填充方块
+      // 从下往上填充方块
       for (int y = 0; y < CHUNK_HEIGHT; y++) {
+        BlockID blockType;
         if (y > surfaceHeight) {
-          // 在地表以上，全是空气
-          world[x][y][z] = BlockID::AIR;
+          blockType = BlockID::AIR;
         } else if (y == surfaceHeight) {
-          // 地表最顶层，是草方块
-          world[x][y][z] = BlockID::GRASS;
+          blockType = BlockID::GRASS;
         } else if (y > surfaceHeight - STONE_LAYER_DEPTH) {
-          // 地表下面几层，是泥土
-          world[x][y][z] = BlockID::DIRT;
+          blockType = BlockID::DIRT;
         } else {
-          // 更深的地方，是石头
-          world[x][y][z] = BlockID::STONE;
+          blockType = BlockID::STONE;
         }
+        chunk->setBlock(localX, y, localZ, blockType);
       }
     }
   }
 }
 
-int GetBlock(int x, int y, int z) {
-  if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_HEIGHT && z >= 0 &&
-      z < CHUNK_DEPTH) {
-    // 2. 如果坐标在合法范围内，返回该位置的方块类型。
-    return world[x][y][z];
-  } else {
-    return BlockID::AIR;
-  }
-}
 
-void RenderWorld() {
-  for (int x = 0; x < CHUNK_WIDTH; x++) {
-    for (int y = 0; y < CHUNK_HEIGHT; y++) {
-      for (int z = 0; z < CHUNK_DEPTH; z++) {
 
-        // 如果当前位置是空气，直接跳过，不进行任何渲染
-        if (world[x][y][z] == BlockID::AIR) {
-          continue;
-        }
 
-        // 检查是否可见的逻辑 (这个优化依然非常重要!)
-        bool isVisible = false;
-        if (y + 1 >= CHUNK_HEIGHT || world[x][y + 1][z] == BlockID::AIR)
-          isVisible = true;
-        else if (y - 1 < 0 || world[x][y - 1][z] == BlockID::AIR)
-          isVisible = true;
-        else if (z + 1 >= CHUNK_DEPTH || world[x][y][z + 1] == BlockID::AIR)
-          isVisible = true;
-        else if (z - 1 < 0 || world[x][y][z - 1] == BlockID::AIR)
-          isVisible = true;
-        else if (x + 1 >= CHUNK_WIDTH || world[x + 1][y][z] == BlockID::AIR)
-          isVisible = true;
-        else if (x - 1 < 0 || world[x - 1][y][z] == BlockID::AIR)
-          isVisible = true;
 
-        if (isVisible) {
-          Texture2D currentTexture;
-          // 根据方块ID选择贴图
-          switch (world[x][y][z]) {
-          case BlockID::GRASS:
-            currentTexture = grassTexture;
-            break;
-          case BlockID::DIRT:
-            currentTexture = dirtTexture;
-            break;
-          case BlockID::STONE:
-            currentTexture = stoneTexture;
-            break;
-          default:
-            // 如果有未知的方块ID，可以给个默认或跳过
-            continue;
-          }
-          DrawCubeTexture(currentTexture,
-                          (Vector3){(float)x, (float)y, (float)z}, 1.0f, 1.0f,
-                          1.0f, WHITE);
-        }
-      }
-    }
-  }
-}
 
-void DestroyBlockAt(int x, int y, int z) { world[x][y][z] = BlockID::AIR; }
-
-void PlaceBlockAt(int x, int y, int z, int block_type) {
-  world[x][y][z] = block_type;
-}
 
 void UnloadWorldTextures() {
   UnloadTexture(grassTexture);
   UnloadTexture(stoneTexture);
   UnloadTexture(dirtTexture);
+}
+
+World::World() {
+  // 初始加载玩家周围的区块
+  for (int x = -1; x <= 1; x++) {
+    for (int z = -1; z <= 1; z++) {
+      loadChunk(x, z);
+    }
+  }
+}
+
+World::~World() {
+  // 释放所有区块内存
+  for (auto &pair : m_chunks) {
+    delete pair.second;
+  }
+  m_chunks.clear();
 }
 
 int floor_div(int a, int n) {
@@ -174,7 +132,10 @@ void World::loadChunk(int x, int z) {
   // 检查是否已经加载过了
   if (m_chunks.find(coord) == m_chunks.end()) {
     // 如果没有，就创建一个新的区块并放入map
-    m_chunks[coord] = new Chunk(coord);
+    Chunk* newChunk = new Chunk(coord);
+    // 生成地形
+    GenerateChunkTerrain(newChunk, x, z);
+    m_chunks[coord] = newChunk;
   }
 }
 
@@ -184,4 +145,68 @@ ChunkCoord2D World::worldToChunkCoord(int worldX, int worldZ) const {
   return {chunkX, chunkZ};
 }
 
-void World::update(const Vector3 &playerPosition) {}
+void World::update(const Vector3 &playerPosition) {
+  // TODO: 动态加载/卸载区块
+}
+
+void World::render() {
+  for (auto &pair : m_chunks) {
+    ChunkCoord2D chunkCoord = pair.first;
+    Chunk *chunk = pair.second;
+
+    // 遍历区块内的所有方块
+    for (int localX = 0; localX < CHUNK_WIDTH; localX++) {
+      for (int localY = 0; localY < CHUNK_HEIGHT; localY++) {
+        for (int localZ = 0; localZ < CHUNK_DEPTH; localZ++) {
+          BlockID blockID = chunk->getBlock(localX, localY, localZ);
+
+          // 跳过空气方块
+          if (blockID == BlockID::AIR) {
+            continue;
+          }
+
+          // 计算世界坐标
+          int worldX = chunkCoord.x * CHUNK_WIDTH + localX;
+          int worldY = localY;
+          int worldZ = chunkCoord.z * CHUNK_DEPTH + localZ;
+
+          // 检查是否可见（至少有一个相邻方块是空气）
+          bool isVisible = false;
+          if (getBlock(worldX, worldY + 1, worldZ) == BlockID::AIR)
+            isVisible = true;
+          else if (getBlock(worldX, worldY - 1, worldZ) == BlockID::AIR)
+            isVisible = true;
+          else if (getBlock(worldX + 1, worldY, worldZ) == BlockID::AIR)
+            isVisible = true;
+          else if (getBlock(worldX - 1, worldY, worldZ) == BlockID::AIR)
+            isVisible = true;
+          else if (getBlock(worldX, worldY, worldZ + 1) == BlockID::AIR)
+            isVisible = true;
+          else if (getBlock(worldX, worldY, worldZ - 1) == BlockID::AIR)
+            isVisible = true;
+
+          if (isVisible) {
+            Texture2D currentTexture;
+            switch (blockID) {
+            case BlockID::GRASS:
+              currentTexture = grassTexture;
+              break;
+            case BlockID::DIRT:
+              currentTexture = dirtTexture;
+              break;
+            case BlockID::STONE:
+              currentTexture = stoneTexture;
+              break;
+            default:
+              continue;
+            }
+            DrawCubeTexture(currentTexture,
+                            (Vector3){(float)worldX, (float)worldY,
+                                      (float)worldZ},
+                            1.0f, 1.0f, 1.0f, WHITE);
+          }
+        }
+      }
+    }
+  }
+}
