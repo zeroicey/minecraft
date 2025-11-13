@@ -9,10 +9,10 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 set(PROJECT_SOURCES
     ${CMAKE_SOURCE_DIR}/src/main.cpp
     ${CMAKE_SOURCE_DIR}/src/utils.cpp
-    ${CMAKE_SOURCE_DIR}/src/mouse.cpp
     ${CMAKE_SOURCE_DIR}/src/ui.cpp
     ${CMAKE_SOURCE_DIR}/src/world.cpp
     ${CMAKE_SOURCE_DIR}/src/player.cpp
+    ${CMAKE_SOURCE_DIR}/src/chunk.cpp
 )
 
 include(FetchContent)

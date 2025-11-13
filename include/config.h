@@ -11,17 +11,6 @@
 #define SCREEN_HEIGHT 1080
 #define TARGET_FPS 120
 
-// 世界设置
-#define CHUNK_WIDTH 16
-#define CHUNK_HEIGHT 64 // 我们可以把高度设得更高些，比如64
-#define CHUNK_LENGTH 16
-
-// 方块ID定义
-#define BLOCK_AIR 0
-#define BLOCK_GRASS 1
-#define BLOCK_DIRT 2
-#define BLOCK_STONE 3
-
 // 地形生成参数
 #define TERRAIN_BASE_HEIGHT 32.0f // 基础地平线
 #define TERRAIN_AMPLITUDE 15.0f   // 地形起伏幅度

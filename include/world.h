@@ -1,12 +1,11 @@
 #pragma once
 #include "chunk.h"
-#include "config.h"
 #include <map>
 #include <raylib.h>
 
 // 声明世界数据结构和操作函数
 extern int world[CHUNK_WIDTH][CHUNK_HEIGHT]
-                [CHUNK_LENGTH]; // 使用 extern 声明全局变量
+                [CHUNK_DEPTH]; // 使用 extern 声明全局变量
 extern Texture2D grassTexture;
 extern Texture2D stoneTexture;
 extern Texture2D dirtTexture;

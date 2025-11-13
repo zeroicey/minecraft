@@ -6,7 +6,7 @@
 #include "utils.h"
 #include <raymath.h>
 
-int world[CHUNK_WIDTH][CHUNK_HEIGHT][CHUNK_LENGTH];
+int world[CHUNK_WIDTH][CHUNK_HEIGHT][CHUNK_DEPTH];
 Texture2D grassTexture;
 Texture2D dirtTexture;
 Texture2D stoneTexture;
@@ -19,7 +19,7 @@ void InitWorld() {
 
 void GenerateWorld() {
   for (int x = 0; x < CHUNK_WIDTH; x++) {
-    for (int z = 0; z < CHUNK_LENGTH; z++) {
+    for (int z = 0; z < CHUNK_DEPTH; z++) {
       // 1. 计算当前 (x, z) 坐标的地表高度
       float heightNoise =
           sinf(x / TERRAIN_FREQUENCY) * cosf(z / TERRAIN_FREQUENCY);
@@ -36,16 +36,16 @@ void GenerateWorld() {
       for (int y = 0; y < CHUNK_HEIGHT; y++) {
         if (y > surfaceHeight) {
           // 在地表以上，全是空气
-          world[x][y][z] = BLOCK_AIR;
+          world[x][y][z] = BlockID::AIR;
         } else if (y == surfaceHeight) {
           // 地表最顶层，是草方块
-          world[x][y][z] = BLOCK_GRASS;
+          world[x][y][z] = BlockID::GRASS;
         } else if (y > surfaceHeight - STONE_LAYER_DEPTH) {
           // 地表下面几层，是泥土
-          world[x][y][z] = BLOCK_DIRT;
+          world[x][y][z] = BlockID::DIRT;
         } else {
           // 更深的地方，是石头
-          world[x][y][z] = BLOCK_STONE;
+          world[x][y][z] = BlockID::STONE;
         }
       }
     }
@@ -54,50 +54,50 @@ void GenerateWorld() {
 
 int GetBlock(int x, int y, int z) {
   if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_HEIGHT && z >= 0 &&
-      z < CHUNK_LENGTH) {
+      z < CHUNK_DEPTH) {
     // 2. 如果坐标在合法范围内，返回该位置的方块类型。
     return world[x][y][z];
   } else {
-    return BLOCK_AIR;
+    return BlockID::AIR;
   }
 }
 
 void RenderWorld() {
   for (int x = 0; x < CHUNK_WIDTH; x++) {
     for (int y = 0; y < CHUNK_HEIGHT; y++) {
-      for (int z = 0; z < CHUNK_LENGTH; z++) {
+      for (int z = 0; z < CHUNK_DEPTH; z++) {
 
         // 如果当前位置是空气，直接跳过，不进行任何渲染
-        if (world[x][y][z] == BLOCK_AIR) {
+        if (world[x][y][z] == BlockID::AIR) {
           continue;
         }
 
         // 检查是否可见的逻辑 (这个优化依然非常重要!)
         bool isVisible = false;
-        if (y + 1 >= CHUNK_HEIGHT || world[x][y + 1][z] == BLOCK_AIR)
+        if (y + 1 >= CHUNK_HEIGHT || world[x][y + 1][z] == BlockID::AIR)
           isVisible = true;
-        else if (y - 1 < 0 || world[x][y - 1][z] == BLOCK_AIR)
+        else if (y - 1 < 0 || world[x][y - 1][z] == BlockID::AIR)
           isVisible = true;
-        else if (z + 1 >= CHUNK_LENGTH || world[x][y][z + 1] == BLOCK_AIR)
+        else if (z + 1 >= CHUNK_DEPTH || world[x][y][z + 1] == BlockID::AIR)
           isVisible = true;
-        else if (z - 1 < 0 || world[x][y][z - 1] == BLOCK_AIR)
+        else if (z - 1 < 0 || world[x][y][z - 1] == BlockID::AIR)
           isVisible = true;
-        else if (x + 1 >= CHUNK_WIDTH || world[x + 1][y][z] == BLOCK_AIR)
+        else if (x + 1 >= CHUNK_WIDTH || world[x + 1][y][z] == BlockID::AIR)
           isVisible = true;
-        else if (x - 1 < 0 || world[x - 1][y][z] == BLOCK_AIR)
+        else if (x - 1 < 0 || world[x - 1][y][z] == BlockID::AIR)
           isVisible = true;
 
         if (isVisible) {
           Texture2D currentTexture;
           // 根据方块ID选择贴图
           switch (world[x][y][z]) {
-          case BLOCK_GRASS:
+          case BlockID::GRASS:
             currentTexture = grassTexture;
             break;
-          case BLOCK_DIRT:
+          case BlockID::DIRT:
             currentTexture = dirtTexture;
             break;
-          case BLOCK_STONE:
+          case BlockID::STONE:
             currentTexture = stoneTexture;
             break;
           default:
@@ -113,7 +113,7 @@ void RenderWorld() {
   }
 }
 
-void DestroyBlockAt(int x, int y, int z) { world[x][y][z] = BLOCK_AIR; }
+void DestroyBlockAt(int x, int y, int z) { world[x][y][z] = BlockID::AIR; }
 
 void PlaceBlockAt(int x, int y, int z, int block_type) {
   world[x][y][z] = block_type;
@@ -145,7 +145,7 @@ BlockID World::getBlock(int worldX, int worldY, int worldZ) const {
     Chunk *chunk = it->second;
 
     int localX = worldX - chunkCoord.x * CHUNK_WIDTH;
-    int localZ = worldY - chunkCoord.z * CHUNK_DEPTH;
+    int localZ = worldZ - chunkCoord.z * CHUNK_DEPTH;
 
     return chunk->getBlock(localX, worldY, localZ);
   }
