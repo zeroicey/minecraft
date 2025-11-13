@@ -246,7 +246,7 @@ void World::render()
 
     // 限制渲染高度范围（只渲染地表附近）
     int minY = 0;
-    int maxY = 40; // 可根据地形高度调整，显著减少循环
+    int maxY = 80; // 可根据地形高度调整，显著减少循环
     if (maxY > CHUNK_HEIGHT)
       maxY = CHUNK_HEIGHT;
 
@@ -259,86 +259,99 @@ void World::render()
         {
           BlockID blockID = chunk->getBlock(localX, localY, localZ);
 
-          // 跳过空气方块
           if (blockID == BlockID::AIR)
-          {
             continue;
-          }
 
           // 计算世界坐标
           int worldX = baseWorldX + localX;
           int worldY = localY;
           int worldZ = baseWorldZ + localZ;
 
-          // 计算面掩码：只标记接触空气的面
-          unsigned int faceMask = 0;
+          // 可见性检查：优先使用区块内部邻居；边界再查世界邻居
+          bool isVisible = false;
 
-          // 上面 (+Y)
-          if (localY + 1 >= CHUNK_HEIGHT ||
-              chunk->getBlock(localX, localY + 1, localZ) == BlockID::AIR)
+          // Y + 1
+          if (localY + 1 >= CHUNK_HEIGHT)
           {
-            faceMask |= FACE_TOP;
+            isVisible = true;
           }
-          // 下面 (-Y)
-          if (localY - 1 < 0 ||
-              chunk->getBlock(localX, localY - 1, localZ) == BlockID::AIR)
+          else if (chunk->getBlock(localX, localY + 1, localZ) == BlockID::AIR)
           {
-            faceMask |= FACE_BOTTOM;
-          }
-          // 右面 (+X)
-          if (localX + 1 >= CHUNK_WIDTH)
-          {
-            if (getBlock(worldX + 1, worldY, worldZ) == BlockID::AIR)
-            {
-              faceMask |= FACE_RIGHT;
-            }
-          }
-          else if (chunk->getBlock(localX + 1, localY, localZ) == BlockID::AIR)
-          {
-            faceMask |= FACE_RIGHT;
-          }
-          // 左面 (-X)
-          if (localX - 1 < 0)
-          {
-            if (getBlock(worldX - 1, worldY, worldZ) == BlockID::AIR)
-            {
-              faceMask |= FACE_LEFT;
-            }
-          }
-          else if (chunk->getBlock(localX - 1, localY, localZ) == BlockID::AIR)
-          {
-            faceMask |= FACE_LEFT;
-          }
-          // 前面 (+Z)
-          if (localZ + 1 >= CHUNK_DEPTH)
-          {
-            if (getBlock(worldX, worldY, worldZ + 1) == BlockID::AIR)
-            {
-              faceMask |= FACE_FRONT;
-            }
-          }
-          else if (chunk->getBlock(localX, localY, localZ + 1) == BlockID::AIR)
-          {
-            faceMask |= FACE_FRONT;
-          }
-          // 后面 (-Z)
-          if (localZ - 1 < 0)
-          {
-            if (getBlock(worldX, worldY, worldZ - 1) == BlockID::AIR)
-            {
-              faceMask |= FACE_BACK;
-            }
-          }
-          else if (chunk->getBlock(localX, localY, localZ - 1) == BlockID::AIR)
-          {
-            faceMask |= FACE_BACK;
+            isVisible = true;
           }
 
-          // 如果没有外露面，跳过渲染
-          if (faceMask == 0)
+          // Y - 1
+          if (!isVisible)
+          {
+            if (localY - 1 < 0)
+            {
+              isVisible = true;
+            }
+            else if (chunk->getBlock(localX, localY - 1, localZ) == BlockID::AIR)
+            {
+              isVisible = true;
+            }
+          }
+
+          // X + 1
+          if (!isVisible)
+          {
+            if (localX + 1 >= CHUNK_WIDTH)
+            {
+              if (getBlock(worldX + 1, worldY, worldZ) == BlockID::AIR)
+                isVisible = true;
+            }
+            else if (chunk->getBlock(localX + 1, localY, localZ) == BlockID::AIR)
+            {
+              isVisible = true;
+            }
+          }
+
+          // X - 1
+          if (!isVisible)
+          {
+            if (localX - 1 < 0)
+            {
+              if (getBlock(worldX - 1, worldY, worldZ) == BlockID::AIR)
+                isVisible = true;
+            }
+            else if (chunk->getBlock(localX - 1, localY, localZ) == BlockID::AIR)
+            {
+              isVisible = true;
+            }
+          }
+
+          // Z + 1
+          if (!isVisible)
+          {
+            if (localZ + 1 >= CHUNK_DEPTH)
+            {
+              if (getBlock(worldX, worldY, worldZ + 1) == BlockID::AIR)
+                isVisible = true;
+            }
+            else if (chunk->getBlock(localX, localY, localZ + 1) == BlockID::AIR)
+            {
+              isVisible = true;
+            }
+          }
+
+          // Z - 1
+          if (!isVisible)
+          {
+            if (localZ - 1 < 0)
+            {
+              if (getBlock(worldX, worldY, worldZ - 1) == BlockID::AIR)
+                isVisible = true;
+            }
+            else if (chunk->getBlock(localX, localY, localZ - 1) == BlockID::AIR)
+            {
+              isVisible = true;
+            }
+          }
+
+          if (!isVisible)
             continue;
 
-          // 选择纹理
           Texture2D currentTexture;
           switch (blockID)
           {
@@ -355,13 +368,9 @@ void World::render()
             continue;
           }
 
-          // 渲染只包含外露面的立方体
-          DrawCubeTextureMasked(
-              currentTexture,
-              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-              1.0f, 1.0f, 1.0f,
-              WHITE,
-              faceMask);
+          DrawCubeTexture(currentTexture,
+                          (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                          1.0f, 1.0f, 1.0f, WHITE);
         }
       }
     }
