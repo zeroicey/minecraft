@@ -1,6 +1,7 @@
 # Minecraft Clone
 
 A simple Minecraft-like voxel game built with C++ and Raylib, featuring procedural terrain generation, chunk-based world management, and basic player controls.
+<img width="2546" height="1440" alt="image" src="https://github.com/user-attachments/assets/8ac4baf6-dd86-436d-b379-633bbdb9c6a7" />
 
 ## Features
 
