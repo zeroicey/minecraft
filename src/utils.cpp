@@ -109,6 +109,104 @@ void DrawCubeTexture(Texture2D texture, Vector3 position, float width,
   rlSetTexture(0);
 }
 
+void DrawBlockFace(Texture2D texture, Vector3 position, float width,
+                   float height, float length, Vector3 direction, Color color)
+{
+  float x = position.x;
+  float y = position.y;
+  float z = position.z;
+
+  float halfWidth = width / 2.0f;
+  float halfHeight = height / 2.0f;
+  float halfLength = length / 2.0f;
+
+  Vector3 vertices[4];
+  Vector3 normal;
+
+  // Choose the four vertices that lie on the requested face.
+  // position is the center of the block, so each face is half a block away.
+  if (direction.y > 0.5f)
+  {
+    // Top (+Y)
+    normal = {0.0f, 1.0f, 0.0f};
+    vertices[0] = {x - halfWidth, y + halfHeight, z + halfLength};
+    vertices[1] = {x + halfWidth, y + halfHeight, z + halfLength};
+    vertices[2] = {x + halfWidth, y + halfHeight, z - halfLength};
+    vertices[3] = {x - halfWidth, y + halfHeight, z - halfLength};
+  }
+  else if (direction.y < -0.5f)
+  {
+    // Bottom (-Y)
+    normal = {0.0f, -1.0f, 0.0f};
+    vertices[0] = {x - halfWidth, y - halfHeight, z - halfLength};
+    vertices[1] = {x + halfWidth, y - halfHeight, z - halfLength};
+    vertices[2] = {x + halfWidth, y - halfHeight, z + halfLength};
+    vertices[3] = {x - halfWidth, y - halfHeight, z + halfLength};
+  }
+  else if (direction.x > 0.5f)
+  {
+    // Right (+X)
+    normal = {1.0f, 0.0f, 0.0f};
+    vertices[0] = {x + halfWidth, y - halfHeight, z - halfLength};
+    vertices[1] = {x + halfWidth, y + halfHeight, z - halfLength};
+    vertices[2] = {x + halfWidth, y + halfHeight, z + halfLength};
+    vertices[3] = {x + halfWidth, y - halfHeight, z + halfLength};
+  }
+  else if (direction.x < -0.5f)
+  {
+    // Left (-X)
+    normal = {-1.0f, 0.0f, 0.0f};
+    vertices[0] = {x - halfWidth, y - halfHeight, z + halfLength};
+    vertices[1] = {x - halfWidth, y + halfHeight, z + halfLength};
+    vertices[2] = {x - halfWidth, y + halfHeight, z - halfLength};
+    vertices[3] = {x - halfWidth, y - halfHeight, z - halfLength};
+  }
+  else if (direction.z > 0.5f)
+  {
+    // Front (+Z)
+    normal = {0.0f, 0.0f, 1.0f};
+    vertices[0] = {x - halfWidth, y - halfHeight, z + halfLength};
+    vertices[1] = {x + halfWidth, y - halfHeight, z + halfLength};
+    vertices[2] = {x + halfWidth, y + halfHeight, z + halfLength};
+    vertices[3] = {x - halfWidth, y + halfHeight, z + halfLength};
+  }
+  else if (direction.z < -0.5f)
+  {
+    // Back (-Z)
+    normal = {0.0f, 0.0f, -1.0f};
+    vertices[0] = {x - halfWidth, y - halfHeight, z - halfLength};
+    vertices[1] = {x - halfWidth, y + halfHeight, z - halfLength};
+    vertices[2] = {x + halfWidth, y + halfHeight, z - halfLength};
+    vertices[3] = {x + halfWidth, y - halfHeight, z - halfLength};
+  }
+  else
+  {
+    // Only the six axis-aligned directions are supported.
+    return;
+  }
+
+  rlSetTexture(texture.id);
+  rlBegin(RL_QUADS);
+  rlColor4ub(color.r, color.g, color.b, color.a);
+  rlNormal3f(normal.x, normal.y, normal.z);
+
+  const float textureCoordinates[4][2] = {
+      {0.0f, 0.0f},
+      {1.0f, 0.0f},
+      {1.0f, 1.0f},
+      {0.0f, 1.0f},
+  };
+
+  for (int i = 0; i < 4; ++i)
+  {
+    rlTexCoord2f(textureCoordinates[i][0], textureCoordinates[i][1]);
+    rlVertex3f(vertices[i].x, vertices[i].y, vertices[i].z);
+  }
+
+  rlEnd();
+  rlSetTexture(0);
+}
+
 Texture2D LoadTexturePNG(char const *fileName)
 {
   Texture2D texture = LoadTexture(fileName);

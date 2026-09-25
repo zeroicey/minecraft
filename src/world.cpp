@@ -267,91 +267,6 @@ void World::render()
           int worldY = localY;
           int worldZ = baseWorldZ + localZ;
 
-          // 可见性检查：优先使用区块内部邻居；边界再查世界邻居
-          bool isVisible = false;
-
-          // Y + 1
-          if (localY + 1 >= CHUNK_HEIGHT)
-          {
-            isVisible = true;
-          }
-          else if (chunk->getBlock(localX, localY + 1, localZ) == BlockID::AIR)
-          {
-            isVisible = true;
-          }
-
-          // Y - 1
-          if (!isVisible)
-          {
-            if (localY - 1 < 0)
-            {
-              isVisible = true;
-            }
-            else if (chunk->getBlock(localX, localY - 1, localZ) == BlockID::AIR)
-            {
-              isVisible = true;
-            }
-          }
-
-          // X + 1
-          if (!isVisible)
-          {
-            if (localX + 1 >= CHUNK_WIDTH)
-            {
-              if (getBlock(worldX + 1, worldY, worldZ) == BlockID::AIR)
-                isVisible = true;
-            }
-            else if (chunk->getBlock(localX + 1, localY, localZ) == BlockID::AIR)
-            {
-              isVisible = true;
-            }
-          }
-
-          // X - 1
-          if (!isVisible)
-          {
-            if (localX - 1 < 0)
-            {
-              if (getBlock(worldX - 1, worldY, worldZ) == BlockID::AIR)
-                isVisible = true;
-            }
-            else if (chunk->getBlock(localX - 1, localY, localZ) == BlockID::AIR)
-            {
-              isVisible = true;
-            }
-          }
-
-          // Z + 1
-          if (!isVisible)
-          {
-            if (localZ + 1 >= CHUNK_DEPTH)
-            {
-              if (getBlock(worldX, worldY, worldZ + 1) == BlockID::AIR)
-                isVisible = true;
-            }
-            else if (chunk->getBlock(localX, localY, localZ + 1) == BlockID::AIR)
-            {
-              isVisible = true;
-            }
-          }
-
-          // Z - 1
-          if (!isVisible)
-          {
-            if (localZ - 1 < 0)
-            {
-              if (getBlock(worldX, worldY, worldZ - 1) == BlockID::AIR)
-                isVisible = true;
-            }
-            else if (chunk->getBlock(localX, localY, localZ - 1) == BlockID::AIR)
-            {
-              isVisible = true;
-            }
-          }
-
-          if (!isVisible)
-            continue;
-
           Texture2D currentTexture;
           switch (blockID)
           {
@@ -368,9 +283,104 @@ void World::render()
             continue;
           }
 
-          DrawCubeTexture(currentTexture,
-                          (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                          1.0f, 1.0f, 1.0f, WHITE);
+
+          // Y + 1
+          if (localY + 1 >= CHUNK_HEIGHT)
+          {
+            DrawBlockFace(currentTexture,
+                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                            1.0f, 1.0f, 1.0f, Vector3({0, 1, 0}), WHITE);
+          }
+          else if (chunk->getBlock(localX, localY + 1, localZ) == BlockID::AIR)
+          {
+            DrawBlockFace(currentTexture,
+                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                            1.0f, 1.0f, 1.0f, Vector3({0, 1, 0}), WHITE);
+          }
+
+          // Y - 1
+          if (localY - 1 < 0)
+          {
+            DrawBlockFace(currentTexture,
+                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                            1.0f, 1.0f, 1.0f, Vector3({0, -1, 0}), WHITE);
+          }
+          else if (chunk->getBlock(localX, localY - 1, localZ) == BlockID::AIR)
+          {
+            DrawBlockFace(currentTexture,
+                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                            1.0f, 1.0f, 1.0f, Vector3({0, -1, 0}), WHITE);
+          }
+
+          // X + 1
+          if (localX + 1 >= CHUNK_WIDTH)
+          {
+            if (getBlock(worldX + 1, worldY, worldZ) == BlockID::AIR)
+            {
+
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({1, 0, 0}), WHITE);
+            }
+          }
+          else if (chunk->getBlock(localX + 1, localY, localZ) == BlockID::AIR)
+          {
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({1, 0, 0}), WHITE);
+          }
+
+          // X - 1
+          if (localX - 1 < 0)
+          {
+            if (getBlock(worldX - 1, worldY, worldZ) == BlockID::AIR)
+            {
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({-1, 0, 0}), WHITE);
+            }
+          }
+          else if (chunk->getBlock(localX - 1, localY, localZ) == BlockID::AIR)
+          {
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({-1, 0, 0}), WHITE);
+          }
+
+          // Z + 1
+          if (localZ + 1 >= CHUNK_DEPTH)
+          {
+            if (getBlock(worldX, worldY, worldZ + 1) == BlockID::AIR)
+            {
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({0, 0, 1}), WHITE);
+            }
+          }
+          else if (chunk->getBlock(localX, localY, localZ + 1) == BlockID::AIR)
+          {
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({0, 0, 1}), WHITE);
+          }
+
+          // Z - 1
+          if (localZ - 1 < 0)
+          {
+            if (getBlock(worldX, worldY, worldZ - 1) == BlockID::AIR)
+            {
+              DrawBlockFace(currentTexture,
+                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                              1.0f, 1.0f, 1.0f, Vector3({0, 0, -1}), WHITE);
+            }
+          }
+          else if (chunk->getBlock(localX, localY, localZ - 1) == BlockID::AIR)
+          {
+            DrawBlockFace(currentTexture,
+                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
+                            1.0f, 1.0f, 1.0f, Vector3({0, 0, -1}), WHITE);
+
+          }
         }
       }
     }

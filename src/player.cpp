@@ -5,7 +5,6 @@
 #include "raymath.h"
 #include "world.h"
 #include <cmath>
-#include <iostream>
 
 // 定义玩家相机
 Camera3D playerCamera = {0};
