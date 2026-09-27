@@ -37,12 +37,26 @@ set(PROJECT_SOURCES
 )
 
 include(FetchContent)
+# raylib is pinned to a release tag on purpose: tracking `master` means an upstream
+# breaking change can break the build with no local commit involved. Override to
+# follow upstream with:  cmake -B build -DRAYLIB_GIT_TAG=master
+set(RAYLIB_GIT_TAG "5.5" CACHE STRING "raylib git tag/branch/commit used by FetchContent")
 FetchContent_Declare(
     raylib
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
-    GIT_TAG master
+    GIT_TAG ${RAYLIB_GIT_TAG}
+    GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(raylib)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+# MinGW links the GCC runtime (libstdc++/libgcc/libwinpthread) dynamically by
+# default, so the exe would refuse to start unless three DLLs sat next to it.
+# Link it statically instead: build/ stays runnable as-is and the UCRT is still
+# taken from Windows itself. -static-libgcc/-static-libstdc++ are not enough --
+# libwinpthread-1.dll still shows up in `objdump -p minecraft.exe`.
+if(MINGW)
+    target_link_options(${PROJECT_NAME} PRIVATE -static)
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)

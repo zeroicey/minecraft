@@ -1,2 +1,11 @@
 /.cache
 /build
+
+# VS Code config is per-machine: the Windows toolchain lives in
+# C:\Program Files\mingw64 and those paths are meaningless on Linux.
+# Only the extension recommendations are shared.
+/.vscode/*
+!/.vscode/extensions.json
+
+# CMake/compiler artifacts if a build ever runs out-of-tree
+compile_commands.json

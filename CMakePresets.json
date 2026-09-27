@@ -1,0 +1,45 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows / MinGW-w64 + Ninja",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "C:/Program Files/mingw64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/Program Files/mingw64/bin/g++.exe"
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux / nixpkgs gcc + Unix Makefiles",
+      "inherits": "base",
+      "generator": "Unix Makefiles"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-mingw",
+      "configurePreset": "windows-mingw"
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    }
+  ]
+}

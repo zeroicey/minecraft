@@ -1,0 +1,12 @@
+# This repo is developed on both Windows (hpstation, MinGW) and Linux (hpnix, NixOS).
+# Normalize everything to LF in the repo and in both working trees so a file edited
+# on one machine does not show up as a whole-file diff on the other.
+* text=auto eol=lf
+
+# Windows entry points must stay CRLF (cmd.exe is happier with them)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# binaries
+*.png binary
+*.exe binary
