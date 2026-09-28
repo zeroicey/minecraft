@@ -87,4 +87,78 @@ if(MINGW)
     target_link_options(${PROJECT_NAME} PRIVATE -static)
 endif()
 
+# ---- Linux/NixOS: 让 GLFW 能 dlopen 到 X11 客户端库 ----------------------------
+# GLFW 不用链接的方式依赖 X11，而是在 InitWindow() 里 dlopen 它们的 SONAME
+# （libX11.so.6 / libXrandr.so.2 / ...）。链接期没有这些依赖，CMake 就不知道该把
+# 它们的目录写进可执行文件的 run path。普通发行版有 ldconfig 兜底看不出来；NixOS
+# 没有 ldconfig，第一次 InitWindow 就死：
+#     WARNING: GLFW: Error: 65544 Description: X11: Failed to load Xlib
+# 这里把「编译时用到的那批 X11 库」所在目录补进 run path。
+# 注意 NixOS 的 -dev 输出只有头文件、lib 目录里一个 .so 都没有，所以必须经
+# nix-support/propagated-build-inputs 解析到运行时的（非 -dev）输出才算数。
+# 在有 ldconfig 的发行版上通常一个目录都加不上 => 纯 no-op，不会变坏。
+if(UNIX AND NOT APPLE)
+    set(_glfw_dlopen_libs
+        libX11.so.6 libX11-xcb.so.1
+        libXrandr.so.2 libXinerama.so.1 libXcursor.so.1 libXi.so.6
+        libXext.so.6 libXrender.so.1 libXxf86vm.so.1 libxkbcommon.so.0)
+
+    set(_lib_dirs "")
+    set(_rpath "")
+    # CMake feeds the environment's CMAKE_PREFIX_PATH to its own find_* internals
+    # but does NOT expose it as a CMake variable, so reading the variable yields
+    # nothing. Read $ENV{} first, fall back to the variable, and merge both.
+    # The environment form is colon-separated on Unix, not a CMake list.
+    set(_prefixes "$ENV{CMAKE_PREFIX_PATH};${CMAKE_PREFIX_PATH}")
+    string(REPLACE ":" ";" _prefixes "${_prefixes}")
+    list(FILTER _prefixes EXCLUDE REGEX "^$")
+    list(REMOVE_DUPLICATES _prefixes)
+    set(_prefix_count 0)
+    foreach(_prefix IN LISTS _prefixes)
+        math(EXPR _prefix_count "${_prefix_count} + 1")
+        # multi-arch distros (Debian/Ubuntu) keep libraries in lib/<triplet>/
+        file(GLOB _subdirs "${_prefix}/lib/*/")
+        list(APPEND _lib_dirs "${_prefix}/lib" ${_subdirs})
+        # NixOS: -dev output -> runtime output. Paths in that file are separated
+        # by spaces (several per line). Do NOT use a POSIX character class here:
+        # CMake's regex engine does not support [:space:] inside a negated
+        # bracket and silently matches nothing.
+        set(_propagated "${_prefix}/nix-support/propagated-build-inputs")
+        if(EXISTS "${_propagated}")
+            file(READ "${_propagated}" _propagated_text)
+            string(REGEX MATCHALL "[^ \t\n]+" _propagated_deps "${_propagated_text}")
+            foreach(_dep IN LISTS _propagated_deps)
+                if(IS_DIRECTORY "${_dep}/lib")
+                    list(APPEND _lib_dirs "${_dep}/lib")
+                endif()
+            endforeach()
+        endif()
+    endforeach()
+
+    foreach(_soname IN LISTS _glfw_dlopen_libs)
+        foreach(_dir IN LISTS _lib_dirs)
+            if(EXISTS "${_dir}/${_soname}")
+                list(APPEND _rpath "${_dir}")
+                break()
+            endif()
+        endforeach()
+    endforeach()
+    if(_rpath)
+        list(REMOVE_DUPLICATES _rpath)
+        # Deliberately -Wl,-rpath link options instead of the BUILD_RPATH property:
+        # with the nix toolchain the property never reaches the link line (verified
+        # in link.txt), while an explicit flag is passed straight to the linker and
+        # shows up in `tr ' ' '\n' < link.txt | grep -c -- -Wl,-rpath`.
+        foreach(_dir IN LISTS _rpath)
+            target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-rpath,${_dir}")
+        endforeach()
+    endif()
+    list(LENGTH _rpath _rpath_count)
+    message(STATUS "GLFW dlopen: ${_prefix_count} prefix(es), ${_rpath_count} run path dir(s)")
+    foreach(_dir IN LISTS _rpath)
+        message(STATUS "GLFW dlopen run path: ${_dir}")
+    endforeach()
+endif()
+
+
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
