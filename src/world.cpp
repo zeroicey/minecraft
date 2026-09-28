@@ -2,23 +2,29 @@
 #include "block.h"
 #include "chunk.h"
 #include "config.h"
+#include "embedded_atlas.h"
 #include "raylib.h"
-#include "utils.h"
 #include "player.h"
 #include <raymath.h>
 #include <cmath>
 #include <vector>
 #include <algorithm>
 
-Texture2D grassTexture;
-Texture2D dirtTexture;
-Texture2D stoneTexture;
+TextureAtlas g_atlas;
+Material g_blockMaterial;
 
 void InitWorld()
 {
-  grassTexture = LoadTexturePNG("assets/grass.png");
-  dirtTexture = LoadTexturePNG("assets/dirt.png");
-  stoneTexture = LoadTexturePNG("assets/stone.png");
+  // 图集在编译期就已经被编进 exe 了（见 cmake/embed_binary.cmake），
+  // 所以运行时不需要 assets/ 目录，发布只要发这一个 exe。
+  if (!g_atlas.LoadFromMemory(EMBEDDED_ATLAS_PNG, (int)EMBEDDED_ATLAS_PNG_SIZE))
+  {
+    TraceLog(LOG_ERROR, "InitWorld: failed to load the embedded atlas");
+  }
+
+  // 所有方块共用一个材质：默认 shader + 图集贴图
+  g_blockMaterial = LoadMaterialDefault();
+  g_blockMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = g_atlas.GetTexture();
 }
 
 void GenerateChunkTerrain(Chunk *chunk, int chunkX, int chunkZ)
@@ -46,22 +52,22 @@ void GenerateChunkTerrain(Chunk *chunk, int chunkX, int chunkZ)
       // 从下往上填充方块
       for (int y = 0; y < CHUNK_HEIGHT; y++)
       {
-        BlockID blockType;
+        BlockType blockType;
         if (y > surfaceHeight)
         {
-          blockType = BlockID::AIR;
+          blockType = BlockType::AIR;
         }
         else if (y == surfaceHeight)
         {
-          blockType = BlockID::GRASS;
+          blockType = BlockType::GRASS;
         }
         else if (y > surfaceHeight - STONE_LAYER_DEPTH)
         {
-          blockType = BlockID::DIRT;
+          blockType = BlockType::DIRT;
         }
         else
         {
-          blockType = BlockID::STONE;
+          blockType = BlockType::STONE;
         }
         chunk->setBlock(localX, y, localZ, blockType);
       }
@@ -71,9 +77,11 @@ void GenerateChunkTerrain(Chunk *chunk, int chunkX, int chunkZ)
 
 void UnloadWorldTextures()
 {
-  UnloadTexture(grassTexture);
-  UnloadTexture(stoneTexture);
-  UnloadTexture(dirtTexture);
+  // 注意顺序：UnloadMaterial 会把材质 maps 里引用的贴图也一起卸载，
+  // 而这张贴图归 g_atlas 管。先把引用摘掉，避免同一张贴图被卸两次。
+  g_blockMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = Texture2D{0};
+  UnloadMaterial(g_blockMaterial);
+  g_atlas.Unload();
 }
 
 World::World()
@@ -108,11 +116,11 @@ int floor_div(int a, int n)
   return r;
 }
 
-BlockID World::getBlock(int worldX, int worldY, int worldZ) const
+BlockType World::getBlock(int worldX, int worldY, int worldZ) const
 {
   if (worldY < 0 || worldY >= CHUNK_HEIGHT)
   {
-    return BlockID::AIR;
+    return BlockType::AIR;
   }
 
   ChunkCoord2D chunkCoord = worldToChunkCoord(worldX, worldZ);
@@ -128,10 +136,10 @@ BlockID World::getBlock(int worldX, int worldY, int worldZ) const
     return chunk->getBlock(localX, worldY, localZ);
   }
 
-  return BlockID::AIR;
+  return BlockType::AIR;
 }
 
-void World::setBlock(int worldX, int worldY, int worldZ, BlockID id)
+void World::setBlock(int worldX, int worldY, int worldZ, BlockType id)
 {
   if (worldY < 0 || worldY >= CHUNK_HEIGHT)
   {
@@ -153,14 +161,29 @@ void World::setBlock(int worldX, int worldY, int worldZ, BlockID id)
 void World::loadChunk(int x, int z)
 {
   ChunkCoord2D coord = {x, z};
-  // 检查是否已经加载过了
-  if (m_chunks.find(coord) == m_chunks.end())
+  // 已经加载过了就直接返回
+  if (m_chunks.find(coord) != m_chunks.end())
   {
-    // 如果没有，就创建一个新的区块并放入map
-    Chunk *newChunk = new Chunk(coord);
-    // 生成地形
-    GenerateChunkTerrain(newChunk, x, z);
-    m_chunks[coord] = newChunk;
+    return;
+  }
+
+  // 把 this 传进去：Chunk 需要它来查询跨区块的邻居方块
+  Chunk *newChunk = new Chunk(coord, this);
+  // 生成地形
+  GenerateChunkTerrain(newChunk, x, z);
+  m_chunks[coord] = newChunk;
+
+  // 这个区块之前不存在，邻居生成 mesh 时把这里当成了空气（于是在接缝处
+  // 留下了一堵朝外的"墙"）。现在它出现了，必须让已加载的 4 个邻居重建。
+  const ChunkCoord2D neighbors[4] = {
+      {x - 1, z}, {x + 1, z}, {x, z - 1}, {x, z + 1}};
+  for (const ChunkCoord2D &n : neighbors)
+  {
+    auto it = m_chunks.find(n);
+    if (it != m_chunks.end())
+    {
+      it->second->markDirty();
+    }
   }
 }
 
@@ -216,9 +239,28 @@ void World::update(const Vector3 &playerPosition)
     auto it = m_chunks.find(coord);
     if (it != m_chunks.end())
     {
+      // 卸载前，把还活着的邻居标脏：它们之前贴着这个区块的面被剔掉了，
+      // 现在要重新露出来。
+      const ChunkCoord2D neighbors[4] = {
+          {coord.x - 1, coord.z}, {coord.x + 1, coord.z}, {coord.x, coord.z - 1}, {coord.x, coord.z + 1}};
+      for (const ChunkCoord2D &n : neighbors)
+      {
+        auto neighborIt = m_chunks.find(n);
+        if (neighborIt != m_chunks.end())
+        {
+          neighborIt->second->markDirty();
+        }
+      }
+
       delete it->second;  // 释放区块内存
       m_chunks.erase(it); // 从map中移除
     }
+  }
+
+  // 3. 重建所有被标脏的区块的 mesh（干净的区块会在 update() 里直接跳过）
+  for (auto &pair : m_chunks)
+  {
+    pair.second->update();
   }
 }
 
@@ -229,160 +271,17 @@ void World::render()
     ChunkCoord2D chunkCoord = pair.first;
     Chunk *chunk = pair.second;
 
-    // 距离裁剪：区块中心到相机的水平距离超过阈值则跳过渲染
-    int chunkCenterX = chunkCoord.x * CHUNK_WIDTH + CHUNK_WIDTH / 2;
-    int chunkCenterZ = chunkCoord.z * CHUNK_DEPTH + CHUNK_DEPTH / 2;
-    float dx = playerCamera.position.x - (float)chunkCenterX;
-    float dz = playerCamera.position.z - (float)chunkCenterZ;
-    float horizontalDist = sqrtf(dx * dx + dz * dz);
-    if (horizontalDist > 128.0f)
-    { // 可调：视距阈值（方块单位）
+    // 距离裁剪：区块中心到相机的水平距离超过阈值就跳过
+    const int chunkCenterX = chunkCoord.x * CHUNK_WIDTH + CHUNK_WIDTH / 2;
+    const int chunkCenterZ = chunkCoord.z * CHUNK_DEPTH + CHUNK_DEPTH / 2;
+    const float dx = playerCamera.position.x - (float)chunkCenterX;
+    const float dz = playerCamera.position.z - (float)chunkCenterZ;
+    if (sqrtf(dx * dx + dz * dz) > 128.0f)
+    {
       continue;
     }
 
-    // 预计算当前区块的世界坐标偏移
-    int baseWorldX = chunkCoord.x * CHUNK_WIDTH;
-    int baseWorldZ = chunkCoord.z * CHUNK_DEPTH;
-
-    // 限制渲染高度范围（只渲染地表附近）
-    int minY = 0;
-    int maxY = 80; // 可根据地形高度调整，显著减少循环
-    if (maxY > CHUNK_HEIGHT)
-      maxY = CHUNK_HEIGHT;
-
-    // 遍历区块内的所有方块
-    for (int localX = 0; localX < CHUNK_WIDTH; localX++)
-    {
-      for (int localY = minY; localY < maxY; localY++)
-      {
-        for (int localZ = 0; localZ < CHUNK_DEPTH; localZ++)
-        {
-          BlockID blockID = chunk->getBlock(localX, localY, localZ);
-
-          if (blockID == BlockID::AIR)
-            continue;
-
-          // 计算世界坐标
-          int worldX = baseWorldX + localX;
-          int worldY = localY;
-          int worldZ = baseWorldZ + localZ;
-
-          Texture2D currentTexture;
-          switch (blockID)
-          {
-          case BlockID::GRASS:
-            currentTexture = grassTexture;
-            break;
-          case BlockID::DIRT:
-            currentTexture = dirtTexture;
-            break;
-          case BlockID::STONE:
-            currentTexture = stoneTexture;
-            break;
-          default:
-            continue;
-          }
-
-
-          // Y + 1
-          if (localY + 1 >= CHUNK_HEIGHT)
-          {
-            DrawBlockFace(currentTexture,
-                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                            1.0f, 1.0f, 1.0f, Vector3({0, 1, 0}), WHITE);
-          }
-          else if (chunk->getBlock(localX, localY + 1, localZ) == BlockID::AIR)
-          {
-            DrawBlockFace(currentTexture,
-                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                            1.0f, 1.0f, 1.0f, Vector3({0, 1, 0}), WHITE);
-          }
-
-          // Y - 1
-          if (localY - 1 < 0)
-          {
-            DrawBlockFace(currentTexture,
-                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                            1.0f, 1.0f, 1.0f, Vector3({0, -1, 0}), WHITE);
-          }
-          else if (chunk->getBlock(localX, localY - 1, localZ) == BlockID::AIR)
-          {
-            DrawBlockFace(currentTexture,
-                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                            1.0f, 1.0f, 1.0f, Vector3({0, -1, 0}), WHITE);
-          }
-
-          // X + 1
-          if (localX + 1 >= CHUNK_WIDTH)
-          {
-            if (getBlock(worldX + 1, worldY, worldZ) == BlockID::AIR)
-            {
-
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({1, 0, 0}), WHITE);
-            }
-          }
-          else if (chunk->getBlock(localX + 1, localY, localZ) == BlockID::AIR)
-          {
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({1, 0, 0}), WHITE);
-          }
-
-          // X - 1
-          if (localX - 1 < 0)
-          {
-            if (getBlock(worldX - 1, worldY, worldZ) == BlockID::AIR)
-            {
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({-1, 0, 0}), WHITE);
-            }
-          }
-          else if (chunk->getBlock(localX - 1, localY, localZ) == BlockID::AIR)
-          {
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({-1, 0, 0}), WHITE);
-          }
-
-          // Z + 1
-          if (localZ + 1 >= CHUNK_DEPTH)
-          {
-            if (getBlock(worldX, worldY, worldZ + 1) == BlockID::AIR)
-            {
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({0, 0, 1}), WHITE);
-            }
-          }
-          else if (chunk->getBlock(localX, localY, localZ + 1) == BlockID::AIR)
-          {
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({0, 0, 1}), WHITE);
-          }
-
-          // Z - 1
-          if (localZ - 1 < 0)
-          {
-            if (getBlock(worldX, worldY, worldZ - 1) == BlockID::AIR)
-            {
-              DrawBlockFace(currentTexture,
-                              (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                              1.0f, 1.0f, 1.0f, Vector3({0, 0, -1}), WHITE);
-            }
-          }
-          else if (chunk->getBlock(localX, localY, localZ - 1) == BlockID::AIR)
-          {
-            DrawBlockFace(currentTexture,
-                            (Vector3){(float)worldX, (float)worldY, (float)worldZ},
-                            1.0f, 1.0f, 1.0f, Vector3({0, 0, -1}), WHITE);
-
-          }
-        }
-      }
-    }
+    // mesh 在 Chunk::update() 里已经建好并上传到 GPU，这里只管画
+    chunk->Draw();
   }
 }

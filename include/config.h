@@ -16,3 +16,8 @@
 #define TERRAIN_AMPLITUDE 15.0f   // 地形起伏幅度
 #define TERRAIN_FREQUENCY 10.0f   // 地形频率（数值越大，地形越平缓）
 #define STONE_LAYER_DEPTH 5       // 从地表往下多少层开始变为石头
+
+// 图集相关常量
+#define ATLAS_SIZE 256.0f  // 图集整图大小 (256x256)
+#define TILE_SIZE  16.0f   // 单个格子像素大小 (16x16)
+

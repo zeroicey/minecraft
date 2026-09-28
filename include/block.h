@@ -3,10 +3,10 @@
 #include <map>
 #include <string>
 
-enum BlockID : uint8_t { AIR, STONE, DIRT, GRASS };
+enum BlockType : uint8_t { AIR, STONE, DIRT, GRASS };
 
 struct BlockProperties {
-  BlockID id;
+  BlockType type;
   std::string name;
   bool is_transparent;
 };
@@ -14,8 +14,8 @@ struct BlockProperties {
 class BlockRegistry {
 public:
   static void Initialize();
-  static const BlockProperties &Get(BlockID id);
+  static const BlockProperties &Get(BlockType type);
 
 private:
-  static std::map<BlockID, BlockProperties> s_propertiesMap;
+  static std::map<BlockType, BlockProperties> s_propertiesMap;
 };

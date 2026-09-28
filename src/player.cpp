@@ -50,10 +50,10 @@ void UpdatePlayer(World* world) {
       int block_x = (int)round(current_point.x);
       int block_y = (int)round(current_point.y);
       int block_z = (int)round(current_point.z);
-      if (world->getBlock(block_x, block_y, block_z) != BlockID::AIR) {
+      if (world->getBlock(block_x, block_y, block_z) != BlockType::AIR) {
         target_block_pos =
             (Vector3){(float)block_x, (float)block_y, (float)block_z};
-        world->setBlock(block_x, block_y, block_z, BlockID::AIR);
+        world->setBlock(block_x, block_y, block_z, BlockType::AIR);
         break;
       }
     }
@@ -73,9 +73,9 @@ void UpdatePlayer(World* world) {
       int block_x = (int)round(current_point.x);
       int block_y = (int)round(current_point.y);
       int block_z = (int)round(current_point.z);
-      if (world->getBlock(block_x, block_y, block_z) != BlockID::AIR) {
+      if (world->getBlock(block_x, block_y, block_z) != BlockType::AIR) {
         world->setBlock((int)round(last_air_pos.x), (int)round(last_air_pos.y),
-                     (int)round(last_air_pos.z), BlockID::STONE);
+                     (int)round(last_air_pos.z), BlockType::STONE);
         break;
       } else {
         last_air_pos =

@@ -2,15 +2,15 @@
 #include <map>
 #include <stdexcept>
 
-std::map<BlockID, BlockProperties> BlockRegistry::s_propertiesMap;
+std::map<BlockType, BlockProperties> BlockRegistry::s_propertiesMap;
 
 void BlockRegistry::Initialize() {
-  s_propertiesMap[BlockID::AIR] = {BlockID::AIR, "Air", true};
-  s_propertiesMap[BlockID::STONE] = {BlockID::STONE, "Stone", false};
-  s_propertiesMap[BlockID::GRASS] = {BlockID::GRASS, "Grass", false};
+  s_propertiesMap[BlockType::AIR] = {BlockType::AIR, "Air", true};
+  s_propertiesMap[BlockType::STONE] = {BlockType::STONE, "Stone", false};
+  s_propertiesMap[BlockType::GRASS] = {BlockType::GRASS, "Grass", false};
 }
 
-const BlockProperties &BlockRegistry::Get(BlockID id) {
+const BlockProperties &BlockRegistry::Get(BlockType id) {
   auto it = s_propertiesMap.find(id);
   if (it != s_propertiesMap.end()) {
     return it->second;

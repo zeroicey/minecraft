@@ -63,15 +63,16 @@ The game will launch in a 1920x1080 window at 120 FPS.
 ```
 minecraft/
 ├── CMakeLists.txt          # Build configuration
-├── assets/                 # Game assets
-│   ├── grass.png          # Grass block texture
-│   ├── dirt.png           # Dirt block texture
-│   └── stone.png          # Stone block texture
+├── assets/                 # Source art
+│   └── atlas.png          # Texture atlas (16x16 tiles), compiled into the exe
+├── cmake/                  # Build helpers
+│   └── embed_binary.cmake # Turns a binary file into an embedded byte array
 ├── include/               # Header files
 │   ├── block.h           # Block type definitions
 │   ├── chunk.h           # Chunk management
 │   ├── config.h          # Game configuration
 │   ├── player.h          # Player/camera controls
+│   ├── texture_atlas.h   # Texture atlas + UV lookup
 │   ├── utils.h           # Utility functions
 │   └── world.h           # World management
 └── src/                  # Source files

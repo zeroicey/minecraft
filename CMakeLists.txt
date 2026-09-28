@@ -26,14 +26,42 @@ endforeach()
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
+# ---- 把资源编译进 exe --------------------------------------------------------
+# assets/atlas.png 会被转成一个字节数组直接编进可执行文件，所以发布时
+# 只需要发 minecraft.exe，不用附带 assets/ 目录。
+# 生成物在 <build>/generated/ 下；atlas.png 或脚本一变就会自动重新生成。
+set(ASSET_GEN_DIR "${CMAKE_BINARY_DIR}/generated")
+set(ATLAS_PNG     "${CMAKE_SOURCE_DIR}/assets/atlas.png")
+set(ATLAS_GEN_CPP "${ASSET_GEN_DIR}/embedded_atlas.cpp")
+set(ATLAS_GEN_HPP "${ASSET_GEN_DIR}/embedded_atlas.h")
+
+file(MAKE_DIRECTORY "${ASSET_GEN_DIR}")
+include_directories("${ASSET_GEN_DIR}")
+
+add_custom_command(
+    OUTPUT  "${ATLAS_GEN_CPP}" "${ATLAS_GEN_HPP}"
+    COMMAND "${CMAKE_COMMAND}"
+            "-DINPUT=${ATLAS_PNG}"
+            "-DOUTPUT_CPP=${ATLAS_GEN_CPP}"
+            "-DOUTPUT_HPP=${ATLAS_GEN_HPP}"
+            "-DSYMBOL=EMBEDDED_ATLAS_PNG"
+            -P "${CMAKE_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS "${ATLAS_PNG}" "${CMAKE_SOURCE_DIR}/cmake/embed_binary.cmake"
+    COMMENT "Embedding assets/atlas.png into the executable"
+    VERBATIM
+)
+
 set(PROJECT_SOURCES
     ${CMAKE_SOURCE_DIR}/src/main.cpp
     ${CMAKE_SOURCE_DIR}/src/utils.cpp
     ${CMAKE_SOURCE_DIR}/src/ui.cpp
+    ${CMAKE_SOURCE_DIR}/src/texture_atlas.cpp
     ${CMAKE_SOURCE_DIR}/src/world.cpp
     ${CMAKE_SOURCE_DIR}/src/player.cpp
     ${CMAKE_SOURCE_DIR}/src/chunk.cpp
     ${CMAKE_SOURCE_DIR}/src/block.cpp
+    # 生成的文件：列进 sources，CMake 才会把它和上面的 custom command 接起来
+    "${ATLAS_GEN_CPP}"
 )
 
 include(FetchContent)

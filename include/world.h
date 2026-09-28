@@ -1,12 +1,14 @@
 #pragma once
 #include "chunk.h"
+#include "texture_atlas.h"
 #include <map>
 #include <raylib.h>
 
-// 纹理资源（全局共享）
-extern Texture2D grassTexture;
-extern Texture2D stoneTexture;
-extern Texture2D dirtTexture;
+// 纹理资源（全局共享）：整张图集只加载一次，具体贴哪一格由 UV 决定
+extern TextureAtlas g_atlas;
+
+// 所有方块共用的一份材质：raylib 默认 shader + 图集贴图
+extern Material g_blockMaterial;
 
 void InitWorld();
 void UnloadWorldTextures();
@@ -19,11 +21,11 @@ public:
   // 主要的更新函数，由游戏主循环调用
   void update(const Vector3 &playerPosition);
 
-  // 获取世界中任意一个绝对坐标的方块ID
-  BlockID getBlock(int worldX, int worldY, int worldZ) const;
+  // 获取世界中任意一个绝对坐标的方块Type
+  BlockType getBlock(int worldX, int worldY, int worldZ) const;
 
-  // 设置世界中任意一个绝对坐标的方块ID
-  void setBlock(int worldX, int worldY, int worldZ, BlockID id);
+  // 设置世界中任意一个绝对坐标的方块Type
+  void setBlock(int worldX, int worldY, int worldZ, BlockType type);
 
   // 渲染所有加载的区块
   void render();
