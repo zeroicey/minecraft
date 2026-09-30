@@ -1,4 +1,6 @@
 /.cache
+# pi background-task logs (build logs, task receipts)
+/.pi
 /build
 
 # VS Code config is per-machine: the Windows toolchain lives in

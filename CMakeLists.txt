@@ -65,16 +65,36 @@ set(PROJECT_SOURCES
 )
 
 include(FetchContent)
-# raylib is pinned to a release tag on purpose: tracking `master` means an upstream
-# breaking change can break the build with no local commit involved. Override to
-# follow upstream with:  cmake -B build -DRAYLIB_GIT_TAG=master
-set(RAYLIB_GIT_TAG "5.5" CACHE STRING "raylib git tag/branch/commit used by FetchContent")
-FetchContent_Declare(
-    raylib
-    GIT_REPOSITORY https://github.com/raysan5/raylib.git
-    GIT_TAG ${RAYLIB_GIT_TAG}
-    GIT_SHALLOW TRUE
-)
+# raylib is pinned on purpose: tracking `master` means an upstream breaking change
+# can break the build with no local commit involved. A release tarball plus
+# URL_HASH pins the exact bytes, which is stricter than pinning a tag (a tag can
+# be moved). To move to another release, change RAYLIB_VERSION *and* its
+# RAYLIB_SHA256:  cmake -B build -DRAYLIB_VERSION=5.6 -DRAYLIB_SHA256=<sha256>
+# A tarball is used instead of GIT_REPOSITORY because `git clone` is not
+# dependable everywhere: the pack transfer gets cut on some networks (the ref
+# handshake still succeeds, so it looks fine until the clone dies), which used
+# to hang `build.sh clean` for half an hour. A plain HTTPS download survives
+# that, is much faster, and drops the git dependency entirely.
+set(RAYLIB_VERSION "5.5" CACHE STRING "raylib version used by FetchContent")
+set(RAYLIB_SHA256 "aea98ecf5bc5c5e0b789a76de0083a21a70457050ea4cc2aec7566935f5e258e"
+    CACHE STRING "sha256 of the raylib release tarball for RAYLIB_VERSION")
+
+# .cache/ is gitignored and already holds the tarball on machines with a slow or
+# flaky link: reusing it keeps every `clean` build from re-downloading ~42 MB.
+# Same bytes either way, so URL_HASH still applies.
+set(RAYLIB_TARBALL "${CMAKE_SOURCE_DIR}/.cache/raylib-${RAYLIB_VERSION}.tar.gz")
+if(EXISTS "${RAYLIB_TARBALL}")
+    set(RAYLIB_SOURCE "${RAYLIB_TARBALL}")
+else()
+    set(RAYLIB_SOURCE "https://github.com/raysan5/raylib/archive/refs/tags/${RAYLIB_VERSION}.tar.gz")
+endif()
+
+set(RAYLIB_DECLARE_ARGS URL ${RAYLIB_SOURCE} URL_HASH "SHA256=${RAYLIB_SHA256}")
+# Silences CMP0135 (added in 3.24); older ExternalProject rejects the keyword.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+    list(APPEND RAYLIB_DECLARE_ARGS DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+endif()
+FetchContent_Declare(raylib ${RAYLIB_DECLARE_ARGS})
 FetchContent_MakeAvailable(raylib)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
@@ -162,3 +182,8 @@ endif()
 
 
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+
+# src/main.cpp pre-flights libX11 with dlopen() to turn the "GLFW: Failed to
+# initialize GLFW" core dump into a readable error; CMAKE_DL_LIBS is empty on
+# Windows and expands to -ldl where it is needed.
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_DL_LIBS})
